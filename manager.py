@@ -1,11 +1,11 @@
 import sqlite3
-from hashlib import sha256
 import secrets
 import string
 from cryptography.fernet import Fernet
 import os
 
-ADMIN_PASSWORD = '789'
+# Password to log into the program
+ADMIN_PASSWORD = '123'
 
 login = input('Enter the password:\n')
 
@@ -28,15 +28,13 @@ def encrypt_password(password):
     encrypted_pass = f.encrypt(password.encode())
     return encrypted_pass, key
     
-
 # Decrypts the password that was stored
 def decrypt_password(key, encrypted_pass):
     f = Fernet(key)
     decrypted_pass = f.decrypt(encrypted_pass)
     return decrypted_pass
 
-
-# Store service, username, password given by the user in the database
+# Store service, username and password given by the user in the database
 def store_password(service, username, password):
     if not service or not username or not password:
         print('Error, please try again')
@@ -49,14 +47,13 @@ def store_password(service, username, password):
         print(f'Your password for "{service}" is now safely stored')
         print('')
 
-# Create random password for the user
+# Create a random password for the user
 def create_random_password():
     alphabet = string.ascii_letters + string.digits + string.punctuation
     password = ''.join(secrets.choice(alphabet) for i in range(16))
     print('')
-    print("Here's the password generate for you: "  + password)
-    print('')
-    question = input('Do you want to store it? (Y/N)\n')
+    print("Here's the password generate for you: "  + password + '\n')
+    question = input('Do you want to store it? (Y/N)\n').upper()
     if question == 'Y':
         service = input('What is the name of the service?\n')
         username = input('What is the username you want to user?\n')
@@ -66,15 +63,13 @@ def create_random_password():
 
 # Retrives password based on the service
 def get_password(service):
-    result = cursor.execute('''
-        SELECT * FROM Passwords WHERE service=?
-    ''', (service, )).fetchone()
+    result = cursor.execute('SELECT * FROM Passwords WHERE service=?', (service, )).fetchone()
 
     if result is None:
         print('')
         print(f'No password is stored for "{service}""')
     else:  
-        password = decrypt_password(result[4], result[3])
+        password = decrypt_password(result[4], result[3]) # Decrypt the password
         print('-' * 50)
         print('   Service: ' + result[1])
         print('   Username: ' + result[2])
@@ -99,33 +94,37 @@ def get_all_passwords():
 
 # Deletes multiple passwords from database based on the user choice
 def delete_password():
-    nums = '1234567890'
-    print('')
-    n_delets = input('How many passwords do you want to delete?\nInput a number or if you want to delete all just write "all".\n')
-    if n_delets == 'all':
-        cursor.execute(f'''
-                DELETE FROM Passwords
-            ''')
-        connection.commit()
+    data = cursor.execute('SELECT * FROM Passwords ORDER BY Service DESC').fetchall()
+    # Check if any password is stored
+    if not len(data) > 0:
         print('')
-        print('All passwords have been deleted')
-    elif n_delets in nums and n_delets != '':
-        n_delets = int(n_delets)
-        for _ in range(n_delets):
-            service = input('What is the service for which you want to delete the password?\n')
-            cursor.execute(f'''
-                DELETE FROM Passwords WHERE service=?
-            ''', (service, ))
-            connection.commit()
-            print(f'Password for "{service}" deleted')
+        print('You have no passwords stored.')
     else:
-        print('Invalid input. Please try again')
+        nums = '1234567890'
+        print('')
+        n_delets = input('How many passwords do you want to delete?\nInput a number or if you want to delete all just write "all".\n').lower()
+        if n_delets == 'all':
+            cursor.execute('DELETE FROM Passwords')
+            connection.commit()
+            print('')
+            print('All passwords have been deleted')
+        elif n_delets in nums and n_delets != '':
+            n_delets = int(n_delets)
+            for _ in range(n_delets):
+                service = input('What is the service for which you want to delete the password?\n')
+                if service != '':
+                    cursor.execute('DELETE FROM Passwords WHERE service=?', (service, ))
+                    connection.commit()
+                    print(f'Password for "{service}" deleted')
+                else:
+                    print('Invalid input. Please try again')
+                    continue
+        else:
+            print('Invalid input. Please try again')
     
-
-
 # Ask if the user wants to keep using the program
 def question_continue():
-    question = input('Do you want to keep using the program? (Y/N) ')
+    question = input('Do you want to keep using the program? (Y/N) ').upper()
     if question == 'Y':
         return 'continue'
     elif question == 'N':
@@ -133,7 +132,6 @@ def question_continue():
     else:
         print('Unexpected input, please try again with Y or N')
         question_continue()
-
 
 
 # Main program
@@ -202,19 +200,17 @@ if ADMIN_PASSWORD == login:
             if not len(data) > 0:
                 print('')
                 print('You have no passwords stored.\n')
-                continue
-            
-            with open('passwords.txt', 'w', encoding='utf-8') as f:
-                f.write('These are the passwords you stored:\n\n\n')
-                for row in data:
-                    password = decrypt_password(row[4], row[3])
-                    f.write('   Service: ' + row[1] + '\n')
-                    f.write('   Username: ' + row[2] + '\n')
-                    f.write('   Password: ' + password.decode() + '\n')
-                    f.write('-' * 50 + '\n')
-            print('')
-            print('File with name "passwords.txt" was just created/updated in this script directory')
-            print('')
+            else:
+                with open('passwords.txt', 'w', encoding='utf-8') as f:
+                    f.write('These are the passwords you stored:\n\n\n')
+                    for row in data:
+                        password = decrypt_password(row[4], row[3])
+                        f.write('   Service: ' + row[1] + '\n')
+                        f.write('   Username: ' + row[2] + '\n')
+                        f.write('   Password: ' + password.decode() + '\n')
+                        f.write('-' * 50 + '\n')
+                print('')
+                print('File with name "passwords.txt" was just created/updated in this script directory\n')
 
             if question_continue() == 'break':
                 break
